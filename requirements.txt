@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-dotenv
+langchain
+langchain-openai
+chromadb
+python-multipart
+websockets
+pytest
+httpx
+pydantic-settings
+langchain-community
+duckduckgo-search
+langchain-experimental
+langchain-ollama
