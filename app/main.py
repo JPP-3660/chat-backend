@@ -3,6 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
 from app.api.api import api_router
 from app import models # Import models to register them
+from fastapi.staticfiles import StaticFiles
+import os
+
+# Create uploads directory if it doesnt exist
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
 
 import logging
 
@@ -33,6 +39,8 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 
 @app.get("/")
 async def root():

@@ -21,9 +21,11 @@ def get_sessions(
 @router.get("/messages/{session_id}", response_model=List[MessageSchema])
 def get_messages(
     session_id: str,
+    skip: int = 0,
+    limit: int = 20,
     db: DBSession = Depends(deps.get_db)
 ):
-    messages = db.query(models.Message).filter(models.Message.session_id == session_id).order_by(models.Message.created_at.asc()).all()
+    messages = db.query(models.Message).filter(models.Message.session_id == session_id).order_by(models.Message.created_at.desc()).offset(skip).limit(limit).all()
     return messages
 
 @router.post("/message")
@@ -57,8 +59,7 @@ async def chat_message(
 
     async def stream_and_save():
         full_response = ""
-        # Yield a space for keep-alive and also to send the session ID in a headers-compatible way if needed
-        # But for StreamingResponse we can use headers.
+        current_sources = []
         
         async for chunk in llm_service.chat_stream(
             agent=agent, 
@@ -66,15 +67,29 @@ async def chat_message(
             user_input=request.message
         ):
             if chunk:
+                if chunk.startswith("[SOURCES:"):
+                    try:
+                        # Extract sources and append to metadata list
+                        sources_json = chunk[9:-1]
+                        current_sources.extend(json.loads(sources_json))
+                    except:
+                        pass
+                
                 full_response += chunk
                 yield chunk
         
         # Save assistant message once done
         if full_response.strip():
+            # Clean up markers from the content before saving to DB
+            import re
+            cleaned_content = re.sub(r"\[SOURCES: .*?\]", "", full_response)
+            cleaned_content = re.sub(r"\[STATUS: .*?\]", "", cleaned_content)
+            
             assistant_msg = models.Message(
                 session_id=chat_session.id,
                 role="assistant",
-                content=full_response
+                content=cleaned_content.strip(),
+                metadata_={"sources": current_sources}
             )
             db.add(assistant_msg)
             db.commit()
